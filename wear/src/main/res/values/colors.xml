@@ -2,4 +2,10 @@
 <resources>
    <color name="background">#000000</color>
    <color name="digital_text">#ffffff</color>
+
+
+   <color name="main_text_color">#FFFFFF</color>
+   <color name="sub_text_color">#B3E5FC</color> <!-- 100 -->
+   <color name="primary">#03A9F4</color>  <!-- 500 -->
+
 </resources>

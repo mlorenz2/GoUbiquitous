@@ -22,19 +22,6 @@
     android:layout_height="wrap_content"
     app:columnCount="2">
 
-    <TextView
-        android:id="@+id/list_item_date_textview"
-        android:layout_marginBottom="@dimen/abc_list_item_padding_horizontal_material"
-        android:layout_marginTop="@dimen/abc_list_item_padding_horizontal_material"
-        android:fontFamily="sans-serif"
-        android:gravity="center_horizontal"
-        android:textAppearance="@style/TextAppearance.AppCompat.Title"
-        android:textColor="@color/secondary_text"
-        app:layout_columnSpan="2"
-        app:layout_columnWeight="1"
-        app:layout_gravity="fill_horizontal"
-        tools:text="Today, April 03" />
-
     <ImageView
         android:id="@+id/list_item_icon"
         android:layout_width="0dp"
@@ -76,5 +63,18 @@
         android:textSize="36sp"
         app:layout_columnWeight="1"
         tools:text="10" />
+
+    <TextView
+        android:id="@+id/list_item_date_textview"
+        android:layout_marginBottom="@dimen/abc_list_item_padding_horizontal_material"
+        android:layout_marginTop="@dimen/abc_list_item_padding_horizontal_material"
+        android:fontFamily="sans-serif"
+        android:gravity="center_horizontal"
+        android:textAppearance="@style/TextAppearance.AppCompat.Title"
+        android:textColor="@color/secondary_text"
+        app:layout_columnSpan="2"
+        app:layout_columnWeight="1"
+        app:layout_gravity="fill_horizontal"
+        tools:text="Today, April 03" />
 
 </android.support.v7.widget.GridLayout>
