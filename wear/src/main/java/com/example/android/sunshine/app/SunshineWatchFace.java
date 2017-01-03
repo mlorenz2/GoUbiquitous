@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-package com.kupferwerk.wear;
+package com.example.android.sunshine.app;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -30,18 +32,35 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.Asset;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEvent;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.Wearable;
+
+import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
+
+import static com.example.android.sunshine.app.SunshineWatchFaceUtil.PATH_WITH_FEATURE;
 
 /**
  * Digital watch face with seconds. In ambient mode, the seconds aren't displayed. On devices with
@@ -68,29 +87,36 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
       }
    }
 
-   private class Engine extends CanvasWatchFaceService.Engine {
+   private class Engine extends CanvasWatchFaceService.Engine
+         implements DataApi.DataListener, GoogleApiClient.ConnectionCallbacks,
+         GoogleApiClient.OnConnectionFailedListener {
       final Handler mUpdateTimeHandler = new EngineHandler(this);
+      private final String TAG = SunshineWatchFace.class.getSimpleName();
       int centerX;
+      int centerY;
       SimpleDateFormat dateFormat;
       String dateText;
       Paint dateTextPaint;
+      String highTemp = "";
+      Paint highTempPaint;
+      Paint iconPaint;
+      String lowTemp = "Test";
+      Paint lowTempPaint;
       boolean mAmbient;
       Paint mBackgroundPaint;
       Calendar mCalendar;
       final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
-         class LoadSunshineData extends AsyncTask {
-            @Override
-            protected Object doInBackground(Object[] params) {
-               return "Hallo Welt";
-            }
-         }
-
          @Override
          public void onReceive(Context context, Intent intent) {
             mCalendar.setTimeZone(TimeZone.getDefault());
             invalidate();
          }
       };
+      GoogleApiClient mGoogleApiClient =
+            new GoogleApiClient.Builder(SunshineWatchFace.this).addConnectionCallbacks(this)
+                  .addOnConnectionFailedListener(this)
+                  .addApi(Wearable.API)
+                  .build();
       /**
        * Whether the display supports fewer bits for each color in ambient mode. When true, we
        * disable anti-aliasing in ambient mode.
@@ -100,8 +126,45 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
       Paint mTextPaint;
       float mXOffset;
       float mYOffset;
+      Bitmap scaledBitmap = null;
       SimpleDateFormat timeFormat;
       String timeText;
+
+      public void loadBitmapFromAsset(Asset asset) {
+         if (asset == null) {
+            throw new IllegalArgumentException("Asset must be non-null");
+         }
+         new AsyncTask<Asset, Void, Bitmap>() {
+            @Override
+            protected Bitmap doInBackground(Asset... assets) {
+               ConnectionResult result =
+                     mGoogleApiClient.blockingConnect(5000, TimeUnit.MILLISECONDS);
+               if (!result.isSuccess()) {
+                  return null;
+               }
+               InputStream assetInputStream =
+                     Wearable.DataApi.getFdForAsset(mGoogleApiClient, assets[0])
+                           .await()
+                           .getInputStream();
+
+               if (assetInputStream == null) {
+                  Log.w(TAG, "Requested an unknown Asset.");
+                  return null;
+               }
+               //               return Bitmap.createScaledBitmap(BitmapFactory.decodeStream
+               // (assetInputStream), 50,
+               //                     50, false);
+               return BitmapFactory.decodeStream(assetInputStream);
+            }
+
+            @Override
+            protected void onPostExecute(Bitmap bitmap) {
+               super.onPostExecute(bitmap);
+               scaledBitmap = bitmap;
+               invalidate();
+            }
+         }.execute(asset);
+      }
 
       @Override
       public void onAmbientModeChanged(boolean inAmbientMode) {
@@ -132,9 +195,26 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
          float textSize = resources.getDimension(
                isRound ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
          float textSizeDate = resources.getDimension(R.dimen.text_size_date);
-
          mTextPaint.setTextSize(textSize);
          dateTextPaint.setTextSize(textSizeDate);
+         highTempPaint.setTextSize(textSizeDate);
+         lowTempPaint.setTextSize(textSizeDate);
+      }
+
+      @Override
+      public void onConnected(@Nullable Bundle bundle) {
+         Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
+         updateConfigDataItemAndUiOnStartup();
+      }
+
+      @Override
+      public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+      }
+
+      @Override
+      public void onConnectionSuspended(int i) {
+
       }
 
       @Override
@@ -148,6 +228,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                .setAcceptsTapEvents(true)
                .build());
          Resources resources = SunshineWatchFace.this.getResources();
+
+         mGoogleApiClient.connect();
          mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
          mBackgroundPaint = new Paint();
@@ -159,9 +241,42 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
          dateTextPaint = new Paint();
          dateTextPaint = createTextPaint(resources.getColor(R.color.sub_text_color));
 
+         highTempPaint = new Paint();
+         highTempPaint = createTextPaint(resources.getColor(R.color.digital_text));
+
+         lowTempPaint = new Paint();
+         lowTempPaint = createTextPaint(resources.getColor(R.color.sub_text_color));
+
          mCalendar = Calendar.getInstance();
          dateFormat = new SimpleDateFormat("EEE, MMM d yyyy", Locale.getDefault());
          timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+      }
+
+      @Override
+      public void onDataChanged(DataEventBuffer dataEventBuffer) {
+         for (DataEvent dataEvent : dataEventBuffer) {
+            if (dataEvent.getType() != DataEvent.TYPE_CHANGED) {
+               continue;
+            }
+
+            DataItem dataItem = dataEvent.getDataItem();
+            if (!dataItem.getUri()
+                  .getPath()
+                  .equals(PATH_WITH_FEATURE)) {
+               continue;
+            }
+
+            DataMap dataMap = DataMapItem.fromDataItem(dataItem)
+                  .getDataMap();
+
+            Asset profileAsset = dataMap.getAsset("weatherIcon");
+            loadBitmapFromAsset(profileAsset);
+
+            highTemp = dataMap.getString("highTemp");
+            lowTemp = dataMap.getString("lowTemp");
+
+            invalidate();
+         }
       }
 
       @Override
@@ -185,13 +300,21 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
          timeText = timeFormat.format(now);
          centerX = bounds.centerX();
+         centerY = bounds.centerY() - 20;
          dateText = dateFormat.format(now);
-         canvas.drawText(timeText, centerX - (mTextPaint.measureText(timeText)) / 2, mYOffset,
+         canvas.drawText(timeText, centerX - (mTextPaint.measureText(timeText)) / 2, centerY,
                mTextPaint);
          canvas.drawText(dateText, centerX - (dateTextPaint.measureText(dateText)) / 2,
-               mYOffset + 30, dateTextPaint);
-         canvas.drawLine(bounds.centerX()-30, mYOffset+50,bounds.centerX()+30,mYOffset+50,dateTextPaint);
+               centerY + 30, dateTextPaint);
+         canvas.drawLine(centerX - 30, centerY + 50, centerX + 30, centerY + 50, dateTextPaint);
 
+         canvas.drawText(highTemp, centerX+20, centerY + 80, highTempPaint);
+         canvas.drawText(lowTemp, centerX+20, centerY + 110, lowTempPaint);
+
+         if (scaledBitmap != null) {
+            canvas.drawBitmap(scaledBitmap, null,
+                  new Rect(centerX - 60, centerY + 60, centerX, centerY + 120), null);
+         }
       }
 
       @Override
@@ -201,6 +324,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
          boolean burinInProtection = properties.getBoolean(PROPERTY_BURN_IN_PROTECTION, false);
          dateTextPaint.setTypeface(burinInProtection ? NORMAL_TYPEFACE : BOLD_TYPEFACE);
+         highTempPaint.setTypeface(burinInProtection ? NORMAL_TYPEFACE : BOLD_TYPEFACE);
       }
 
       /**
@@ -294,6 +418,20 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
          }
          mRegisteredTimeZoneReceiver = false;
          SunshineWatchFace.this.unregisterReceiver(mTimeZoneReceiver);
+      }
+
+      private void updateConfigDataItemAndUiOnStartup() {
+         SunshineWatchFaceUtil.fetchConfigDataMap(mGoogleApiClient,
+               new SunshineWatchFaceUtil.FetchConfigDataMapCallback() {
+                  @Override
+                  public void onConfigDataMapFetched(DataMap startupConfig) {
+                     // If the DataItem hasn't been created yet or some keys are missing,
+                     // use the default values.
+                     SunshineWatchFaceUtil.putConfigDataItem(mGoogleApiClient, startupConfig);
+
+                     //                     updateUiForConfigDataMap(startupConfig);
+                  }
+               });
       }
 
       /**
