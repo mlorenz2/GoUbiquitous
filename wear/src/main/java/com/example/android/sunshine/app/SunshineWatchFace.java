@@ -99,8 +99,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
       Paint dateTextPaint;
       String highTemp = "";
       Paint highTempPaint;
-      Paint iconPaint;
-      String lowTemp = "Test";
+      String lowTemp = "";
       Paint lowTempPaint;
       boolean mAmbient;
       Paint mBackgroundPaint;
@@ -308,8 +307,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                centerY + 30, dateTextPaint);
          canvas.drawLine(centerX - 30, centerY + 50, centerX + 30, centerY + 50, dateTextPaint);
 
-         canvas.drawText(highTemp, centerX+20, centerY + 80, highTempPaint);
-         canvas.drawText(lowTemp, centerX+20, centerY + 110, lowTempPaint);
+         canvas.drawText(highTemp, centerX + 20, centerY + 80, highTempPaint);
+         canvas.drawText(lowTemp, centerX + 20, centerY + 110, lowTempPaint);
 
          if (scaledBitmap != null) {
             canvas.drawBitmap(scaledBitmap, null,
@@ -421,17 +420,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
       }
 
       private void updateConfigDataItemAndUiOnStartup() {
-         SunshineWatchFaceUtil.fetchConfigDataMap(mGoogleApiClient,
-               new SunshineWatchFaceUtil.FetchConfigDataMapCallback() {
-                  @Override
-                  public void onConfigDataMapFetched(DataMap startupConfig) {
-                     // If the DataItem hasn't been created yet or some keys are missing,
-                     // use the default values.
-                     SunshineWatchFaceUtil.putConfigDataItem(mGoogleApiClient, startupConfig);
-
-                     //                     updateUiForConfigDataMap(startupConfig);
-                  }
-               });
+         SunshineWatchFaceUtil.sendWeatherRequestToPhone(mGoogleApiClient);
       }
 
       /**

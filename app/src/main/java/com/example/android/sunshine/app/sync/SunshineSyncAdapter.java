@@ -39,6 +39,7 @@ import com.example.android.sunshine.app.muzei.WeatherMuzeiSource;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.wearable.Asset;
+import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.Wearable;
 
@@ -404,35 +405,9 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
 
          Resources resources = context.getResources();
          int artResourceId = Utility.getArtResourceForWeatherCondition(weatherId);
-         String artUrl = Utility.getArtUrlForWeatherCondition(context, weatherId);
 
-         // On Honeycomb and higher devices, we can retrieve the size of the large icon
-         // Prior to that, we use a fixed size
-         @SuppressLint ("InlinedApi") int largeIconWidth =
-               Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB ?
-                     resources.getDimensionPixelSize(
-                           android.R.dimen.notification_large_icon_width) :
-                     resources.getDimensionPixelSize(R.dimen.notification_large_icon_default);
-         @SuppressLint ("InlinedApi") int largeIconHeight =
-               Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB ?
-                     resources.getDimensionPixelSize(
-                           android.R.dimen.notification_large_icon_height) :
-                     resources.getDimensionPixelSize(R.dimen.notification_large_icon_default);
-
-         // Retrieve the large icon
          Bitmap largeIcon;
-//         try {
-//            largeIcon = Glide.with(context)
-//                  .load(artUrl)
-//                  .asBitmap()
-//                  .error(artResourceId)
-//                  .fitCenter()
-//                  .into(largeIconWidth, largeIconHeight)
-//                  .get();
-//         } catch (InterruptedException | ExecutionException e) {
-//            Log.e(LOG_TAG, "Error retrieving large icon from " + artUrl, e);
-//         }
-            largeIcon = BitmapFactory.decodeResource(resources, artResourceId);
+         largeIcon = BitmapFactory.decodeResource(resources, artResourceId);
 
          String highTemp = Utility.formatTemperature(context, high);
          String lowTemp = Utility.formatTemperature(context, low);
@@ -624,15 +599,16 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
       //checking the last update and notify if it' the first of the day
       SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
       String displayNotificationsKey = context.getString(R.string.pref_enable_notifications_key);
-//      boolean displayNotifications = prefs.getBoolean(displayNotificationsKey,
-//            Boolean.parseBoolean(context.getString(R.string.pref_enable_notifications_default)));
+      //      boolean displayNotifications = prefs.getBoolean(displayNotificationsKey,
+      //            Boolean.parseBoolean(context.getString(R.string
+      // .pref_enable_notifications_default)));
 
       if (true) {
 
          String lastNotificationKey = context.getString(R.string.pref_last_notification);
          long lastSync = prefs.getLong(lastNotificationKey, 0);
 
-         if (true){//System.currentTimeMillis() - lastSync >= DAY_IN_MILLIS) {
+         if (true) {//System.currentTimeMillis() - lastSync >= DAY_IN_MILLIS) {
             // Last sync was more than 1 day ago, let's send a notification with the weather.
             String locationQuery = Utility.getPreferredLocation(context);
 
@@ -739,7 +715,9 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
             .putString("highTemp", wearConfig.highTemperature);
       request.getDataMap()
             .putString("lowTemp", wearConfig.lowTemperature);
-      request.getDataMap().putLong("Time",System.currentTimeMillis());
+      // adding time just for debugging purposes
+      request.getDataMap()
+            .putLong("Time", System.currentTimeMillis());
       request.asPutDataRequest();
       request.setUrgent();
       Wearable.DataApi.putDataItem(mGoogleApiClient, request.asPutDataRequest());
@@ -762,7 +740,9 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                public void onConnected(Bundle connectionHint) {
                   Log.d(TAG, "onConnected: " + connectionHint);
                   // Now you can use the Data Layer API
+//                  Wearable.MessageApi.addListener(mGoogleApiClient, new WearMessageListener(getContext()));
                   sendWear(createWearConfig());
+                  mGoogleApiClient.disconnect();
                }
 
                @Override
